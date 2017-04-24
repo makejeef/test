@@ -11,12 +11,14 @@ class Tool:
 
 
 class DOUBAN:
-	def __init__(self,baseUrl):
+	def __init__(self,baseUrl,startNum):
 		self.baseUrl=baseUrl
+		self.startNum='start='+str(startNum*18)
 		self.tool=Tool()
 #得到网页url
-	def getPage(self,url):
+	def getPage(self,pageNum):
 		try:
+			url=self.baseUrl+self.startNum
 			request=urllib.request.Request(url)
 			response=urllib.request.urlopen(request)
 			return response.read().decode('utf-8')
@@ -24,31 +26,18 @@ class DOUBAN:
 			if hasattr(e,'reason'):
 				print(u'连接失败原因：',e.reason)
 				return None
-#得到相册页数
-	def getPageNum(self,url):
-		page=self.getPage(url)
-		pattern=re.compile('<span class="thispage".*="(\d+)">1</span>')
-		m=re.findall(pattern,page)
-		num=int(m[0])
-		return num
-
 #得到图片url
-	def getContent(self,url):
-		items=[]
-		for x in range(self.getPageNum(url)):
-			pageurl=url+'?start='+str(x*18)
-			page_response=self.getPage(pageurl)	
-			pattern=re.compile('<img width=.*?src="(.*?)" />')
-			items.extend(re.findall(pattern,page_response))
+	def getContent(self,pageNum):
+		page=self.getPage(pageNum)
+		pattern=re.compile('<img width=.*?src="(.*?)" />')
+		items=re.findall(pattern,page)
 		return items
-		print(items)
 
 #小图换大图url
-	def replaceName(self,url):
-		items=self.getContent(url)
+	def replaceName(self,imageUrl):
 		pattern=re.compile('lthumb')
-		sub_url=[re.sub(pattern,'lphoto',x) for x in items]
-		return sub_url
+		x=re.sub(pattern,'lphoto',imageUrl)
+		return x
 #保存路径
 	def mkdir(self,path):
 		isExists=os.path.exists(path)
@@ -59,28 +48,21 @@ class DOUBAN:
 			return False
 
 #保存单张图片
-	def save_single(self,url):
-		#得到相册名
-		'''pattern=re.compile('<title>(.*?)</title>')
-		response=urllib.request.urlopen(urllib.request.Request(url)).read().decode('utf-8')
-		name=re.findall(pattern,response)
-		#print(name)
-		pattern_=re.compile('-')
-		name_final=re.sub(pattern_,'_',name[0])
-		self.mkdir(name_final)
-		#为相片命名
-		'''
-		items=self.replaceName(url)
-		print(len(items))
-		for item in items:
-			pattern=re.compile('https.*?public/p(\d+)')
-			x=re.findall(pattern,item)
-			#print(x)
-			filename=x[0]+'.jpg'
-			urllib.request.urlretrieve(item,filename)
-			
+	def save_single(self,url,pageNum):
+		self.mkdir(pageNum)
+		pattern=re.compile('public/p(.*?).jpg')
+		x=re.findall(pattern,url)
+		filename=x[0]+'.jpg'
+		urllib.request.urlretrieve(url,filename)
+
+#保存图片
+	def saveImg(self,pageNum):
+		urls=self.getContent(pageNum)
+		for url in urls:
+			url=self.replaceName(url)
+			print(url)
+			self.save_single(url,pageNum)
 		
-if __name__=='__main__':
-	url=input('plz input the album url:')
-	douban=DOUBAN(url)
-	douban.save_single(url)
+baseUrl='https://www.douban.com/photos/album/1622832404/?'
+douban=DOUBAN(baseUrl,0)
+douban.saveImg(0)
